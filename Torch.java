@@ -1,7 +1,6 @@
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.Parcel;
-import android.os.ServiceManager;
 
 import java.io.File;
 
@@ -25,8 +24,13 @@ public class Torch {
             a[0].equals("on") ||
             (a[0].equals("toggle") && !state.exists());
 
+        Class<?> sm = Class.forName("android.os.ServiceManager");
+
+        java.lang.reflect.Method getService =
+            sm.getDeclaredMethod("getService", String.class);
+
         IBinder camera =
-            ServiceManager.getService("media.camera");
+            (IBinder) getService.invoke(null, "media.camera");
 
         if (camera == null) {
             throw new RuntimeException(
