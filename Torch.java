@@ -18,6 +18,8 @@ public class Torch {
             System.exit(2);
         }
 
+        System.load("/system/lib64/libandroid_runtime.so");
+
         File state = new File("/data/local/tmp/torch.state");
 
         boolean on =
@@ -33,8 +35,7 @@ public class Torch {
             (IBinder) getService.invoke(null, "media.camera");
 
         if (camera == null) {
-            throw new RuntimeException(
-                "media.camera service not found");
+            throw new RuntimeException("media.camera service not found");
         }
 
         Parcel data = Parcel.obtain();
@@ -48,22 +49,13 @@ public class Torch {
             Binder torchClient = new Binder();
             data.writeStrongBinder(torchClient);
 
-            boolean sent =
-                camera.transact(
-                    SET_TORCH_MODE,
-                    data,
-                    reply,
-                    0);
-
-            if (!sent) {
-                throw new RuntimeException(
-                    "Binder transaction failed");
+            if (!camera.transact(SET_TORCH_MODE, data, reply, 0)) {
+                throw new RuntimeException("Binder transaction failed");
             }
 
             int result = reply.readInt();
 
-            System.out.println(
-                "setTorchMode result=" + result);
+            System.out.println("setTorchMode result=" + result);
 
             if (result != 0) {
                 throw new RuntimeException(
@@ -76,8 +68,7 @@ public class Torch {
                 state.delete();
             }
 
-            System.out.println(
-                "TORCH=" + (on ? "ON" : "OFF"));
+            System.out.println("TORCH=" + (on ? "ON" : "OFF"));
 
         } finally {
             reply.recycle();
