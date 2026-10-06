@@ -70,8 +70,8 @@ static int set_torch(bool enabled) {
     if (s != STATUS_OK) goto fail;
 
     /*
-     * Vivo's Android 12 camera service exposes SET_TORCH_MODE
-     * at transaction 16 on this device.
+     * Vivo Android 12: ICameraService SET_TORCH_MODE = transaction 16.
+     * A real Binder client token is required.
      */
     s = AIBinder_transact(camera, 16, &in, &out, 0);
     if (s != STATUS_OK) {
