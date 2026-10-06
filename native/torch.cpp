@@ -1,25 +1,22 @@
 #include <android/binder_ibinder.h>
 #include <android/binder_manager.h>
 #include <android/binder_parcel.h>
-#include <android/binder_process.h>
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
-static binder_status_t onTransact(AIBinder* binder, transaction_code_t code,
-                                  const AParcel* in, AParcel* out) {
-    return STATUS_UNKNOWN_TRANSACTION;
+static void* onCreate(void* args) {
+    return args;
 }
 
-static AIBinder_Class* makeClass() {
-    AIBinder_Class* cls = AIBinder_Class_define(
-        "com.alichiddy.torch.Client",
-        nullptr,
-        onTransact,
-        nullptr);
-    return cls;
+static void onDestroy(void* userData) {
+}
+
+static binder_status_t onTransact(AIBinder* binder,
+                                  transaction_code_t code,
+                                  const AParcel* in,
+                                  AParcel* out) {
+    return STATUS_UNKNOWN_TRANSACTION;
 }
 
 static int set_torch(bool enabled) {
@@ -29,36 +26,54 @@ static int set_torch(bool enabled) {
         return 1;
     }
 
-    AIBinder_Class* cls = makeClass();
+    AIBinder_Class* cls = AIBinder_Class_define(
+        "com.alichiddy.torch.Client",
+        onCreate,
+        onDestroy,
+        onTransact);
+
     if (!cls) {
         fprintf(stderr, "AIBinder_Class_define failed\n");
+        AIBinder_decStrong(camera);
         return 1;
     }
 
     AIBinder* client = AIBinder_new(cls, nullptr);
     if (!client) {
         fprintf(stderr, "AIBinder_new failed\n");
+        AIBinder_decStrong(camera);
         return 1;
     }
 
     AParcel* in = AParcel_create();
-    AParcel* out = AParcel_create();
-    if (!in || !out) {
+    AParcel* out = nullptr;
+
+    if (!in) {
         fprintf(stderr, "AParcel_create failed\n");
+        AIBinder_decStrong(client);
+        AIBinder_decStrong(camera);
         return 1;
     }
 
     binder_status_t s;
-    s = AParcel_writeInterfaceToken(in, "android.hardware.ICameraService");
+    s = AParcel_writeString(
+        in, "android.hardware.ICameraService", 32);
     if (s != STATUS_OK) goto fail;
-    s = AParcel_writeString(in, "0");
+
+    s = AParcel_writeString(in, "0", 1);
     if (s != STATUS_OK) goto fail;
+
     s = AParcel_writeInt32(in, enabled ? 1 : 0);
     if (s != STATUS_OK) goto fail;
+
     s = AParcel_writeStrongBinder(in, client);
     if (s != STATUS_OK) goto fail;
 
-    s = AIBinder_transact(camera, 12, in, out, 0);
+    /*
+     * Vivo's Android 12 camera service exposes SET_TORCH_MODE
+     * at transaction 16 on this device.
+     */
+    s = AIBinder_transact(camera, 16, &in, &out, 0);
     if (s != STATUS_OK) {
         fprintf(stderr, "binder transact failed: %d\n", (int)s);
         goto fail;
@@ -67,6 +82,7 @@ static int set_torch(bool enabled) {
     int32_t exception = 0;
     s = AParcel_readInt32(out, &exception);
     if (s != STATUS_OK) goto fail;
+
     if (exception != 0) {
         fprintf(stderr, "camera service exception: %d\n", exception);
         goto fail;
@@ -77,17 +93,16 @@ static int set_torch(bool enabled) {
     if (s != STATUS_OK) goto fail;
 
     printf("setTorchMode result=%d\n", result);
-    if (result != 0) goto fail;
 
     AParcel_delete(out);
-    AParcel_delete(in);
     AIBinder_decStrong(client);
     AIBinder_decStrong(camera);
-    return 0;
+
+    return result == 0 ? 0 : 1;
 
 fail:
-    if (out) AParcel_delete(out);
-    if (in) AParcel_delete(in);
+    AParcel_delete(in);
+    AParcel_delete(out);
     AIBinder_decStrong(client);
     AIBinder_decStrong(camera);
     return 1;
@@ -100,5 +115,6 @@ int main(int argc, char** argv) {
         fprintf(stderr, "usage: torch_native on|off\n");
         return 2;
     }
+
     return set_torch(strcmp(argv[1], "on") == 0);
 }
