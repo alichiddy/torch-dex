@@ -1,0 +1,45 @@
+name: build-native-torch
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Android NDK
+        run: |
+          SDKMANAGER="/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk/cmdline-tools -name sdkmanager -type f | head -1)"
+          fi
+
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-31" "ndk;26.3.11579264"
+
+      - name: Build arm64 native executable
+        run: |
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          NDK="$ANDROID_HOME/ndk/26.3.11579264"
+          CXX="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang++"
+
+          test -x "$CXX"
+
+          mkdir -p out
+
+          "$CXX"             -O2             -fPIE             -pie             native/torch.cpp             -o out/torch_native             -lbinder_ndk
+
+          file out/torch_native
+          readelf -h out/torch_native | grep -E "Class|Machine|Type"
+          ls -lh out/torch_native
+          sha256sum out/torch_native
+
+      - name: Upload native torch
+        uses: actions/upload-artifact@v4
+        with:
+          name: torch-native-arm64
+          path: out/torch_native
