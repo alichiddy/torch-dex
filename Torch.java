@@ -1,6 +1,5 @@
 import android.content.Context;
 import android.hardware.camera2.CameraManager;
-import android.os.Looper;
 import java.io.File;
 
 public class Torch {
@@ -12,8 +11,6 @@ public class Torch {
             System.err.println("usage: Torch on|off|toggle");
             System.exit(2);
         }
-
-        Looper.prepareMainLooper();
 
         Class<?> at = Class.forName("android.app.ActivityThread");
         Object t = at.getMethod("systemMain").invoke(null);
