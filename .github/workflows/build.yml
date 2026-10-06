@@ -18,13 +18,33 @@ jobs:
 
       - name: Install Android SDK packages
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-31" "build-tools;34.0.0"
+          SDKMANAGER="/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"
+
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk/cmdline-tools -name sdkmanager -type f | head -1)"
+          fi
+
+          echo "sdkmanager: $SDKMANAGER"
+
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+
+          "$SDKMANAGER" \
+            "platforms;android-31" \
+            "build-tools;34.0.0"
 
       - name: Compile and dex
         run: |
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+
           AJ="$ANDROID_HOME/platforms/android-31/android.jar"
           BT="$ANDROID_HOME/build-tools/34.0.0"
+
+          echo "Android SDK: $ANDROID_HOME"
+          echo "android.jar: $AJ"
+          echo "d8: $BT/d8"
+
+          test -f "$AJ"
+          test -x "$BT/d8"
 
           mkdir -p classes out
 
