@@ -16,10 +16,9 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK
+      - name: Install Android SDK packages
         run: |
+          yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-31" "build-tools;34.0.0"
 
       - name: Compile and dex
@@ -45,8 +44,10 @@ jobs:
           mv out/classes.dex torch.dex
 
           ls -lh torch.dex
+          sha256sum torch.dex
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload torch.dex
+        uses: actions/upload-artifact@v4
         with:
           name: torch-dex
           path: torch.dex
