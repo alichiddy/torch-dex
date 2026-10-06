@@ -25,13 +25,23 @@ jobs:
         run: |
           export ANDROID_HOME=/usr/local/lib/android/sdk
           NDK="$ANDROID_HOME/ndk/26.3.11579264"
-          CXX="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang++"
+          TOOLCHAIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64"
+          CXX="$TOOLCHAIN/bin/aarch64-linux-android31-clang++"
+          SYSROOT="$TOOLCHAIN/sysroot"
 
           test -x "$CXX"
+          test -f "$SYSROOT/usr/include/android/binder_manager.h"
 
           mkdir -p out
 
-          "$CXX"             -O2             -fPIE             -pie             native/torch.cpp             -o out/torch_native             -lbinder_ndk
+          "$CXX" \
+            -O2 \
+            -fPIE \
+            -pie \
+            -I"$SYSROOT/usr/include" \
+            native/torch.cpp \
+            -o out/torch_native \
+            -lbinder_ndk
 
           file out/torch_native
           readelf -h out/torch_native | grep -E "Class|Machine|Type"
